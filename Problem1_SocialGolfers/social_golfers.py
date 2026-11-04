@@ -41,7 +41,7 @@ class TimeoutReached(Exception):
 
 class SocialGolfersDFS:
     def __init__(self, groups=8, group_size=4, weeks=3, timeout=30):
-        if groups < 1 or group_size < 2 or weeks < 1 or timeout <= 0:
+        if groups < 1 or group_size < 2 or weeks < 1 or (timeout is not None and timeout <= 0):
             raise ValueError("Invalid configuration")
         self.groups = groups
         self.group_size = group_size
@@ -52,8 +52,11 @@ class SocialGolfersDFS:
         self.used_pairs = set()
         self.nodes = 0
         self.backtracks = 0
+        self.best_schedule = []
 
     def solve(self):
+        self.nodes = 0
+        self.backtracks = 0
         if self.weeks > upper_bound(self.groups, self.group_size):
             return None, "impossible_by_bound"
 
@@ -61,6 +64,7 @@ class SocialGolfersDFS:
         first_week = [list(range(i, i + self.group_size))
                       for i in range(0, self.n, self.group_size)]
         self.schedule = [first_week]
+        self.best_schedule = [[group[:] for group in first_week]]
         self.used_pairs = {
             pair for group in first_week for pair in combinations(group, 2)
         }
@@ -75,11 +79,13 @@ class SocialGolfersDFS:
 
     def _dfs(self, week_index, current_week, available):
         self.nodes += 1
-        if time.perf_counter() - self.start > self.timeout:
+        if self.timeout is not None and time.perf_counter() - self.start > self.timeout:
             raise TimeoutReached
 
         if not available:
             self.schedule.append([group[:] for group in current_week])
+            if len(self.schedule) > len(self.best_schedule):
+                self.best_schedule = [[group[:] for group in week] for week in self.schedule]
             if week_index + 1 == self.weeks:
                 return True
             if self._dfs(week_index + 1, [], tuple(range(self.n))):
@@ -138,6 +144,8 @@ def main():
         print(f"Valid schedule: {is_valid(result, args.groups, args.size)}")
     elif status == "timeout":
         print("Time limit reached. This does NOT prove that no solution exists.")
+        print(f"Best valid partial schedule: {len(solver.best_schedule)} weeks")
+        print_schedule(solver.best_schedule)
     elif status == "impossible_by_bound":
         print("Impossible: requested weeks exceed the mathematical upper bound.")
     else:

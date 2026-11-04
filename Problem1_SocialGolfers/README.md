@@ -1,220 +1,58 @@
-# Problemi 1 – Social Golfers Problem
+# Problemi 1: Social Golfers
 
-## 1. Përshkrimi i problemit
+## Përgjigjja
 
-Social Golfers Problem është një problem i planifikimit, ku 32 lojtarë golfi duhet të ndahen në 8 grupe me nga 4 lojtarë çdo javë.
+Për 32 lojtarë, të ndarë në 8 grupe me nga 4, mund të ketë **maksimumi 10 javë**: çdo lojtar takon 3 lojtarë të tjerë çdo javë, por ka vetëm 31 lojtarë të tjerë. Prandaj `w ≤ floor(31 / 3) = 10`. Ky kufi i sipërm nuk mjafton vetë për të provuar se 10 javë janë të mundshme.
 
-Qëllimi është të krijohet një orar për sa më shumë javë, duke siguruar që asnjë çift lojtarësh të mos jetë në të njëjtin grup më shumë se një herë.
+DFS-ja jonë ndërton vetë orarin për numrin e kërkuar të javëve. Për raste të mëdha mund të arrijë kufirin kohor pa e gjetur një orar të plotë. Në atë rast shfaq orarin më të gjatë që ka ndërtuar deri atëherë, por nuk e paraqet atë si përgjigje të plotë.
 
-Për zgjidhjen e problemit përdoret algoritmi **Depth-First Search (DFS) me Backtracking**.
+## Modelimi dhe reprezentimi
 
-## 2. Modelimi i problemit
+- `g`: numri i grupeve; `p`: lojtarët për grup; `n = g × p`; `w`: javët.
+- Variabla `X[java][grupi][pozita]` përfaqëson lojtarin në atë pozitë. Domeni i saj është `{0, ..., n-1}`.
+- Çdo javë përmban `g` grupe me nga `p` lojtarë dhe secili lojtar shfaqet saktësisht një herë.
+- Çdo çift lojtarësh mund të jetë në të njëjtin grup më së shumti një herë në gjithë orarin.
+- Në kod, `schedule` është listë javësh; secila javë është listë grupesh dhe secili grup është listë lojtarësh.
 
-Problemi modelohet si një *Constraint Satisfaction Problem (CSP)*, ku duhet të gjendet një organizim i lojtarëve që përmbush të gjitha kufizimet.
+## Funksioni objektiv
 
-Parametrat kryesorë janë:
+Për një orar të plotë me grupe dhe lojtarë të vlefshëm, le të jetë `m(i,j)` numri i takimeve të çiftit `i,j`. Minimizojmë:
 
-- **n = 32** – numri i lojtarëve
-- **g = 8** – numri i grupeve
-- **p = 4** – numri i lojtarëve për grup
-- **w** – numri i javëve që planifikohen
+`f(S) = Σ(i<j) max(0, m(i,j) - 1)`
 
-### Variables (Variablat)
+`f(S) = 0` do të thotë se nuk ka çifte të përsëritura. Zero nuk mjafton për një orar të keqformuar: `is_valid()` kontrollon veçmas numrin e grupeve, madhësinë dhe pjesëmarrjen e lojtarëve.
 
-Çdo variabël përfaqëson lojtarin që vendoset në një pozitë të caktuar brenda një grupi dhe një jave.
+## Landscape
 
-Reprezentimi i orarit:
+Numri i ndarjeve të 32 lojtarëve në 8 grupe pa renditje të grupeve ose lojtarëve është `P = 32! / ((4!)^8 × 8!) = 59,287,247,761,257,140,625`. Për 10 javë kemi `P^10 ≈ 10^197.73` orare të mundshme para kontrollit të çifteve. Duke fiksuar javën e parë, mbeten `P^9 ≈ 10^177.96`. Këto nuk janë numra zgjidhjesh të vlefshme.
 
-`shchedule[week][group][position]`
+`landscape.py` merr 500 orare të rastësishme me seed 42: minimumi i `f` është 145, maksimumi 183 dhe mesatarja 163.29; asnjë nuk ka vlerë zero. Një fqinj krijohet duke ndërruar dy lojtarë nga grupe të ndryshme në një javë. Ka `10 × C(8,2) × 4² = 4,480` ndërrime të mundshme për orar. Nga 500 ndërrime të mostruara, 36.6% përmirësuan, 21.0% nuk ndryshuan dhe 42.4% përkeqësuan rezultatin. Këto janë rezultate të mostrës, jo prova për të gjitha oraret.
 
-Në implementim përdoret struktura `schedule[week][group]`, ku çdo grup përmban një listë lojtarësh.
+## DFS dhe backtracking
 
-### Domains (Domenet)
+1. Fiksojmë javën e parë, sepse riemërtimi i lojtarëve jep orare ekuivalente.
+2. Për grupin tjetër zgjedhim lojtarin më të vogël të lirë dhe provojmë kombinime me lojtarët e tjerë të lirë. Kjo shmang renditjet e njëjta të grupeve.
+3. Nëse ndonjë çift është përdorur më herët, kombinimi refuzohet. Përndryshe ruajmë grupin dhe çiftet e tij dhe vazhdojmë në thellësi.
+4. Nëse dega dështon, heqim grupin dhe çiftet e tij dhe provojmë kombinimin tjetër: ky është backtracking.
+5. Një orar i plotë është zgjidhje. Shterimi i kërkimit provon pamundësinë; `timeout` vetëm tregon se koha mbaroi.
 
-Çdo pozitë mund të marrë vlerën e një lojtari nga bashkësia:
+## Ekzekutimi
 
-**D = {0, 1, 2, ..., 31}**
-
-### Constraints (Kufizimet)
-
-Duhet të respektohen tri kufizime:
-
-1. Çdo lojtar duhet të paraqitet saktësisht një herë gjatë një jave.
-2. Çdo grup duhet të përmbajë saktësisht 4 lojtarë.
-3. Asnjë çift lojtarësh nuk lejohet të luajë së bashku më shumë se një herë.
-
-Kufizimet kontrollohen përmes funksionit `is_valid()` dhe gjatë procesit të kërkimit.
-
-## 3. Objective Function
-
-Funksioni objektiv llogarit numrin e takimeve të përsëritura ndërmjet çifteve të lojtarëve.
-
-\[
-f(S)=\sum_{i<j}\max(0,m_{ij}-1)
-\]
-
-Ku:
-
-- **S** – orari i gjeneruar
-- **mᵢⱼ** – numri i herëve që lojtarët i dhe j janë në të njëjtin grup
-- **f(S)** – numri i takimeve të përsëritura
-
-Qëllimi është të minimizohet funksioni objektiv:
-
-\[
-\min f(S)=0
-\]
-
-Një orar i plotë që i respekton kufizimet është i vlefshëm kur `f(S) = 0`.
-
-## 4. Landscape Calculation
-
-Landscape analizon madhësinë e hapësirës së kërkimit dhe shpërndarjen e vlerave të funksionit objektiv.
-
-### Madhësia e hapësirës së kërkimit
-
-Numri i mënyrave për të ndarë 32 lojtarë në 8 grupe me nga 4 lojtarë është:
-
-\[
-P=\frac{32!}{(4!)^8\cdot8!}
-\]
-
-**P = 59,287,247,761,257,140,625**
-
-Për 10 javë, madhësia teorike e hapësirës së ndarjeve është afërsisht:
-
-\[
-P^{10}\approx10^{197.73}
-\]
-
-Me javën e parë të fiksuar, kjo zvogëlohet në afërsisht:
-
-\[
-P^9\approx10^{177.96}
-\]
-
-Këto vlera tregojnë hapësirën potenciale të kërkimit, jo numrin e zgjidhjeve të vlefshme.
-
-### Kufiri teorik i javëve
-
-Çdo lojtar takohet me 3 lojtarë të tjerë gjatë një jave dhe ka gjithsej 31 lojtarë të tjerë.
-
-Prandaj:
-
-\[
-w\leq\left\lfloor\frac{31}{3}\right\rfloor=10
-\]
-
-Pra, kufiri teorik maksimal është **10 javë**.
-
-### Fitness Landscape
-
-Analiza është realizuar duke gjeneruar 500 orare të rastësishme për 10 javë.
-
-Rezultatet:
-
-| Parametri | Rezultati |
-|---|---|
-| Numri i mostrave | 500 |
-| Vlera minimale e f(S) | 145 |
-| Vlera maksimale e f(S) | 183 |
-| Mesatarja e f(S) | 163.29 |
-| Orarë me f(S) = 0 | 0 |
-
-Rezultatet tregojnë se oraret e rastësishme përmbajnë shumë takime të përsëritura, prandaj nevojitet një algoritëm kërkimi që kontrollon kufizimet.
-
-### Neighborhood Analysis
-
-Një zgjidhje fqinje krijohet duke ndërruar dy lojtarë nga grupe të ndryshme brenda së njëjtës javë.
-
-Për konfigurimin me 10 javë ekzistojnë 4,480 fqinj të mundshëm për një orar.
-
-Nga 500 ndërrime të testuara:
-
-- **36.6%** – përmirësojnë funksionin objektiv
-- **21.0%** – nuk e ndryshojnë vlerën
-- **42.4%** – e përkeqësojnë vlerën
-
-Këto përqindje përfaqësojnë rezultatet e mostrës së analizuar.
-
-## 5. DFS me Backtracking
-
-Algoritmi DFS përdoret për të ndërtuar orarin gradualisht, duke eksploruar kombinimet e mundshme të lojtarëve.
-
-Procesi:
-
-1. Fiksohet java e parë për të zvogëluar kombinimet ekuivalente.
-2. Përzgjidhen lojtarët për formimin e grupeve të javës pasuese.
-3. Kontrollohet nëse ndonjë çift lojtarësh është takuar më parë.
-4. Nëse grupi është i vlefshëm, kërkimi vazhdon në thellësi.
-5. Nëse një kombinim nuk mund të çojë në zgjidhje, përdoret Backtracking për t'u kthyer te zgjedhja e mëparshme.
-6. Procesi vazhdon derisa të gjendet një orar i vlefshëm, të përfundojë kërkimi ose të arrihet kufiri kohor.
-
-Për zvogëlimin e hapësirës së kërkimit përdoret edhe **Symmetry Breaking**, duke fiksuar javën e parë dhe duke filluar çdo grup me lojtarin më të vogël të lirë.
-
-## 6. Rezultatet e implementimit
-
-Algoritmi është testuar me konfigurimin standard prej 32 lojtarësh, 8 grupesh dhe 3 javësh.
-
-| Parametri | Rezultati |
-|---|---|
-| Numri i lojtarëve | 32 |
-| Numri i grupeve | 8 |
-| Lojtarë për grup | 4 |
-| Javë të planifikuara | 3 |
-| Objective Function | 0 |
-| Valid Schedule | True |
-| Visited Nodes | 18 |
-| Backtracks | 0 |
-| Koha e ekzekutimit | 0.008 sekonda |
-
-Algoritmi ka gjeneruar një orar të vlefshëm për 3 javë, pa përsëritje të çifteve të lojtarëve.
-
-Kufiri teorik është 10 javë, por implementimi ynë nuk ka vërtetuar ende që mund ta gjenerojë një orar për të gjitha 10 javët.
-
-## 7. Implementimi dhe ekzekutimi
-
-Projekti është zhvilluar në **Python**, ndërsa për ndërfaqen grafike përdoret **Streamlit**.
-
-### Struktura e projektit
-
-```text
-Problem1_SocialGolfers/
-├── README.md
-├── social_golfers.py
-├── landscape.py
-├── app.py
-└── test_social_golfers.py
-```
-
-### Ekzekutimi i algoritmit
-
-Nga folderi kryesor i repository-t:
+Nevojitet Python 3. Nga dosja kryesore e projektit:
 
 ```bash
-python Problem1_SocialGolfers/social_golfers.py
-```
-
-### Ekzekutimi i Landscape
-
-```bash
+python Problem1_SocialGolfers/social_golfers.py --groups 8 --size 4 --weeks 3 --timeout 30
 python Problem1_SocialGolfers/landscape.py
+python -m unittest discover -s Problem1_SocialGolfers -v
 ```
 
-### Ekzekutimi i ndërfaqes grafike
-
-Pas instalimit të Streamlit:
+Për ndërfaqen e thjeshtë Streamlit, instalo varësinë dhe hape aplikacionin:
 
 ```bash
+python -m pip install -r requirements.txt
 python -m streamlit run Problem1_SocialGolfers/app.py
 ```
 
-Ndërfaqja mundëson konfigurimin e problemit, gjenerimin e orarit, shfaqjen e grupeve sipas javëve dhe analizimin e statistikave të algoritmit.
+Ndërfaqja përdor gjithmonë 32 lojtarë në 8 grupe me nga 4; përdoruesi zgjedh numrin e javëve dhe mund të caktojë një kufi kohor. Si parazgjedhje nuk ka kufi kohor: kërkimi mund të zgjasë shumë. Për më shumë se 10 javë shpjegohet menjëherë pse orari është i pamundur. Nëse është aktivizuar kufiri kohor, skadimi i tij do të thotë vetëm që DFS nuk e gjeti orarin e kërkuar në kohë. Programi në terminal mbështet edhe konfigurime të tjera për pyetjen e përgjithshme `n = g × p`.
 
-## 8. Përfundimi
-
-Social Golfers Problem demonstron përdorimin e teknikave të kërkimit të painformuar për zgjidhjen e problemeve me kufizime.
-
-DFS me Backtracking mundëson ndërtimin e orareve të vlefshme, ndërsa kontrollimi i kufizimeve dhe reduktimi i simetrisë ndihmojnë në zvogëlimin e hapësirës së kërkimit.
-
-Analiza e Landscape tregon se problemi ka një numër shumë të madh kombinimesh të mundshme dhe se kërkimi bëhet gjithnjë e më kompleks me rritjen e numrit të javëve.
+Provo `--weeks 10` për DFS, por mos e interpreto skadimin e kohës si pamundësi. Testet kontrollojnë DFS-në në raste më të vogla dhe vlefshmërinë e orarit të pjesshëm kur mbaron koha.

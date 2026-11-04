@@ -15,4 +15,9 @@ The assignment focuses on uninformed search techniques, problem modeling, and se
 - Git & GitHub
 
 ## Progress
-The assignment is currently under development. Each problem will be implemented, tested, and documented separately.
+Each problem has a separate implementation and explanation:
+
+- [Social Golfers](Problem1_SocialGolfers/README.md)
+- [Sudoku Solver](Problem2_Sudoku/README.md)
+- [Latin Square](Problem3_LatinSquare/README.md)
+- [Search Trees](Problem4_SearchTrees/README.md)

@@ -11,6 +11,25 @@ from social_golfers import (
 
 class TestSocialGolfers(unittest.TestCase):
 
+    def test_search_without_time_limit(self):
+        solver = SocialGolfersDFS(3, 3, 4, None)
+        schedule, status = solver.solve()
+        self.assertEqual(status, "found")
+        self.assertTrue(is_valid(schedule, 3, 3))
+
+    def test_bound_without_time_limit(self):
+        schedule, status = SocialGolfersDFS(8, 4, 11, None).solve()
+        self.assertIsNone(schedule)
+        self.assertEqual(status, "impossible_by_bound")
+
+    def test_timeout_keeps_valid_partial_schedule(self):
+        solver = SocialGolfersDFS(8, 4, 9, 0.001)
+        schedule, status = solver.solve()
+        self.assertEqual(status, "timeout")
+        self.assertIsNone(schedule)
+        self.assertTrue(is_valid(solver.best_schedule, 8, 4))
+        self.assertLess(len(solver.best_schedule), 9)
+
     # Test 1: Kufiri teorik i javeve
     def test_upper_bound(self):
         self.assertEqual(upper_bound(8, 4), 10)
